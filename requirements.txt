@@ -1,8 +1,5 @@
 altair
 pandas
 streamlit
-pip install streamlit
-pip install streamlit-webrtc
-pip install tensorflow
 streamlit-webrtc
 tensorflow
