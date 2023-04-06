@@ -1,38 +1,43 @@
-from collections import namedtuple
-import altair as alt
-import math
-import pandas as pd
 import streamlit as st
+import numpy as np
+import tensorflow as tf
+from PIL import Image
+import cv2
+from streamlit_webrtc import webrtc_streamer, VideoTransformerBase
 
-"""
-# Welcome to Streamlit!
+# Load the Teachable Machine model
+model_path = "path/to/your/downloaded/model"
+model = tf.keras.models.load_model(model_path)
 
-Edit `/streamlit_app.py` to customize this app to your heart's desire :heart:
+class VideoTransformer(VideoTransformerBase):
+    def transform(self, frame):
+        img = frame.to_ndarray(format="bgr24")
 
-If you have any questions, checkout our [documentation](https://docs.streamlit.io) and [community
-forums](https://discuss.streamlit.io).
+        # Preprocess the image for the model
+        img = Image.fromarray(img)
+        img_resized = img.resize((224, 224))  # Resize the image according to your model's input size
+        img_array = np.array(img_resized)
+        img_array = img_array / 255.0
+        img_array = img_array[np.newaxis, ...]
 
-In the meantime, below is an example of what you can do with just a few lines of code:
-"""
+        # Make predictions
+        predictions = model.predict(img_array)
+        predicted_class = np.argmax(predictions, axis=-1)[0]
 
+        # Add the predicted class label to the image
+        cv2.putText(img, f"Predicted class: {predicted_class}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
 
-with st.echo(code_location='below'):
-    total_points = st.slider("Number of points in spiral", 1, 5000, 2000)
-    num_turns = st.slider("Number of turns in spiral", 1, 100, 9)
+        return img
 
-    Point = namedtuple('Point', 'x y')
-    data = []
+st.title("Teachable Machine Streamlit App")
+st.subheader("Using webcam input")
 
-    points_per_turn = total_points / num_turns
+# Start the webcam
+webrtc_ctx = webrtc_streamer(key="example", video_transformer_factory=VideoTransformer)
 
-    for curr_point_num in range(total_points):
-        curr_turn, i = divmod(curr_point_num, points_per_turn)
-        angle = (curr_turn + 1) * 2 * math.pi * i / points_per_turn
-        radius = curr_point_num / total_points
-        x = radius * math.cos(angle)
-        y = radius * math.sin(angle)
-        data.append(Point(x, y))
+if not webrtc_ctx.video_transformer:
+    st.write("Waiting for webcam input...")
 
-    st.altair_chart(alt.Chart(pd.DataFrame(data), height=500, width=500)
-        .mark_circle(color='#0068c9', opacity=0.5)
-        .encode(x='x:Q', y='y:Q'))
+# Run the app
+if __name__ == "__main__":
+    st.run()
